@@ -46,12 +46,12 @@ contract CounterHook {
         return Hooks.Permissions({
             beforeInitialize: false,
             afterInitialize: false,
-            beforeAddLiquidity: false,
+            beforeAddLiquidity: true,
             afterAddLiquidity: false,
-            beforeRemoveLiquidity: false,
+            beforeRemoveLiquidity: true,
             afterRemoveLiquidity: false,
-            beforeSwap: false,
-            afterSwap: false,
+            beforeSwap: true,
+            afterSwap: true,
             beforeDonate: false,
             afterDonate: false,
             beforeSwapReturnDelta: false,
@@ -84,6 +84,7 @@ contract CounterHook {
         SwapParams calldata params,
         bytes calldata hookData
     ) external onlyPoolManager returns (bytes4, BeforeSwapDelta, uint24) {
+        counts[key.toId()]['beforeSwap'] += 1;
         return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
@@ -94,6 +95,7 @@ contract CounterHook {
         BalanceDelta delta,
         bytes calldata hookData
     ) external onlyPoolManager returns (bytes4, int128) {
+        counts[key.toId()]['afterSwap'] += 1;
         return (this.afterSwap.selector, 0);
     }
 
@@ -103,6 +105,7 @@ contract CounterHook {
         ModifyLiquidityParams calldata params,
         bytes calldata hookData
     ) external onlyPoolManager returns (bytes4) {
+        counts[key.toId()]['beforeAddLiquidity'] += 1;
         return this.beforeAddLiquidity.selector;
     }
 
@@ -123,6 +126,7 @@ contract CounterHook {
         ModifyLiquidityParams calldata params,
         bytes calldata hookData
     ) external onlyPoolManager returns (bytes4) {
+        counts[key.toId()]['beforeRemoveLiquidity'] += 1;
         return this.beforeRemoveLiquidity.selector;
     }
 
