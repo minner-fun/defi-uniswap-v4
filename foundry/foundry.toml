@@ -4,6 +4,7 @@ out = "out"
 libs = ["lib"]
 remappings = ["@exercises/=src/exercises/"]
 via_ir = true
+solc = "0.8.30"
 
 [fmt]
 line_length = 80
