@@ -5,8 +5,8 @@ import {Test, console} from "forge-std/Test.sol";
 import {IERC20} from "../src/interfaces/IERC20.sol";
 import {POOL_MANAGER, USDC} from "../src/Constants.sol";
 import {TestHelper} from "./TestHelper.sol";
-// import {Flash} from "@exercises/Flash.sol";
-import {Flash} from "../src/solutions/Flash.sol";
+import {Flash} from "@exercises/Flash.sol";
+// import {Flash} from "../src/solutions/Flash.sol";
 
 contract Check {
     address immutable coin;
