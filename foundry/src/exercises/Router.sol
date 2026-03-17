@@ -90,6 +90,12 @@ contract Router is TStore, IUnlockCallback {
     {
         uint256 action = _getAction();
         // Write your code here
+        if (action == SWAP_EXACT_IN_SINGLE){
+            (address msgSender, ExactInputSingleParams memory params) = 
+                aib.decode(data, (address, ExactInputSingleParams));
+            (int128)
+        }
+
         revert UnsupportedAction(action);
     }
 
@@ -100,6 +106,12 @@ contract Router is TStore, IUnlockCallback {
         returns (uint256 amountOut)
     {
         // Write your code here
+        address currencyIn = params.zeroForOne
+            ? params.currency0
+            : params.currency1;
+        currencyIn.transferIn(msg.sender, params.amountIn);
+        bytes memory res = poolManager.unlock(abi.encode(msg.sender, params));
+        
     }
 
     function swapExactOutputSingle(ExactOutputSingleParams calldata params)
