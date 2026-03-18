@@ -92,8 +92,76 @@ contract Router is TStore, IUnlockCallback {
         // Write your code here
         if (action == SWAP_EXACT_IN_SINGLE){
             (address msgSender, ExactInputSingleParams memory params) = 
-                aib.decode(data, (address, ExactInputSingleParams));
-            (int128)
+                abi.decode(data, (address, ExactInputSingleParams));
+            (int128 amount0, int128 amount1) = _swap(
+                params.poolKey,
+                params.zeroForOne,
+                -(params.amountIn.toInt256()),
+                params.hookData
+            );
+            (
+                address currencyIn,
+                address currencyOut,
+                uint256 amountIn,
+                uint256 amountOut
+            ) = params.zeroForOne
+                ? (
+                    params.poolKey.currency0,
+                    params.poolKey.currency1,
+                    (-amount0).toUint256(),
+                    amount1.toUint256()
+                )
+                : (
+                    params.poolKey.currency1,
+                    params.poolKey.currency0,
+                    (-amount1).toUint256(),
+                    amount0.toUint256()
+                );
+            require(amountOut > params.amountOutMin, "amount out too min");
+            _takeAndSettle({
+                dst: msgSender,
+                currencyIn: currencyIn,
+                currencyOut: currencyOut,
+                amountIn: amountIn,
+                amountOut: amountOut
+            });
+            return abi.encode(amountOut);
+        }else if (action == SWAP_EXACT_OUT_SINGLE){
+            (address msgSender, ExactOutputSingleParams memory params) = abi.decode(data, (address, ExactOutputSingleParams));
+            (int128 amount0, int128 amount1) = _swap(
+                params.poolKey,
+                params.zeroForOne,
+                params.amountOut.toInt256(),   // 在swap的内部，通过判断amountSpecified的正负，来断定指定金额是输入还是输出
+                params.hookData
+            );
+            (
+                address currencyIn,
+                address currencyOut,
+                uint256 amountIn,
+                uint256 amountOut
+            ) = params.zeroForOne
+                ? (
+                    params.poolKey.currency0,
+                    params.poolKey.currency1,
+                    (-amount0).toUint256(),
+                    amount1.toUint256()
+                )
+                : (
+                    params.poolKey.currency1,
+                    params.poolKey.currency0,
+                    (-amount1).toUint256(),
+                    amount0.toUint256()
+                );
+            require(amountIn <= params.amountInMax, "amount in > max");
+
+            _takeAndSettle({
+                dst: msgSender,
+                currencyIn: currencyIn,
+                currencyOut: currencyOut,
+                amountIn: amountIn,
+                amountOut: amountOut
+            });
+            return abi.encode(amountIn);
         }
 
         revert UnsupportedAction(action);
@@ -107,11 +175,12 @@ contract Router is TStore, IUnlockCallback {
     {
         // Write your code here
         address currencyIn = params.zeroForOne
-            ? params.currency0
-            : params.currency1;
+            ? params.poolKey.currency0
+            : params.poolKey.currency1;
         currencyIn.transferIn(msg.sender, params.amountIn);
         bytes memory res = poolManager.unlock(abi.encode(msg.sender, params));
-        
+        amountOut = abi.decode(res, (uint256));
+        _refund(currencyIn, msg.sender);
     }
 
     function swapExactOutputSingle(ExactOutputSingleParams calldata params)
@@ -121,6 +190,16 @@ contract Router is TStore, IUnlockCallback {
         returns (uint256 amountIn)
     {
         // Write your code here
+        address currencyIn = params.zeroForOne
+            ? params.poolKey.currency0
+            : params.poolKey.currency1;
+        currencyIn.transferIn(msg.sender, params.amountInMax);
+        poolManager.unlock(abi.encode(msg.sender, params));
+        uint256 refunded = _refund(currencyIn, msg.sender);
+        if (refunded < params.amountInMax){
+            return params.amountInMax - refunded;
+        }
+        return 0;
     }
 
     function swapExactInput(ExactInputParams calldata params)
@@ -139,5 +218,49 @@ contract Router is TStore, IUnlockCallback {
         returns (uint256 amountIn)
     {
         // Write your code here
+    }
+
+    function _swap(
+        PoolKey memory key,
+        bool zeroForOne,
+        int256 amountSpecified,
+        bytes memory hookData
+    ) private returns (int128 amount0, int128 amount1){
+        int256 d = poolManager.swap({
+            key:key,
+            params: SwapParams({
+                zeroForOne: zeroForOne,
+                amountSpecified: amountSpecified,
+                sqrtPriceLimitX96: zeroForOne ? MIN_SQRT_PRICE + 1 : MAX_SQRT_PRICE - 1
+            }),
+            hookData: hookData
+        });
+        BalanceDelta delta = BalanceDelta.wrap(d);
+        return (delta.amount0(), delta.amount1());
+    }
+
+    function _takeAndSettle(
+        address dst,
+        address currencyIn,
+        address currencyOut,
+        uint256 amountIn,
+        uint256 amountOut
+    )private {
+        poolManager.take(currencyOut, dst, amountOut);
+        poolManager.sync(currencyIn);
+        if (currencyIn == address(0)){
+            poolManager.settle{value: amountIn}();
+        }else{
+            IERC20(currencyIn).transfer(address(poolManager), amountIn);
+            poolManager.settle();
+        }
+    }
+
+    function _refund(address currency, address dst) private returns(uint256){
+        uint256 bal = currency.balanceOf(address(this));
+        if(bal > 0){
+            currency.transferOut(dst, bal);
+        }
+        return bal;
     }
 }
