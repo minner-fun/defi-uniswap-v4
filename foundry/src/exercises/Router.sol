@@ -162,7 +162,85 @@ contract Router is TStore, IUnlockCallback {
                 amountOut: amountOut
             });
             return abi.encode(amountIn);
+        }else if(action == SWAP_EXACT_IN){
+            (address msgSender, ExactInputParams memory params) =  abi.decode(data, (address, ExactInputParams));
+            
+            uint256 n = params.path.length;
+            address currencyIn = params.currencyIn;
+            int256 amountIn = params.amountIn.toInt256();
+            for (uint256 i=0; i< n; i++){
+                PathKey memory path = params.path[i];
+                (address currency0, address currency1) = path.currency 
+                    < currencyIn 
+                    ? (path.currency, currencyIn)
+                    : (currencyIn, path.currency);
+                PoolKey memory key = PoolKey({
+                    currency0: currency0,
+                    currency1: currency1,
+                    fee: path.fee,
+                    tickSpacing: path.tickSpacing,
+                    hooks: path.hooks
+                });
+                bool zeroForOne = currencyIn == currency0;
+                (int128 amount0, int128 amount1) = _swap({
+                    key: key,
+                    zeroForOne: zeroForOne,
+                    amountSpecified: (-amountIn),
+                    hookData: path.hookData
+                });
+                currencyIn = path.currency;
+                amountIn = (zeroForOne ? amount1 : amount0).toInt256();
+            }
+            require(
+                uint256(amountIn) >= uint256(params.amountOutMin), "amount out < min"
+            );
+            _takeAndSettle({
+                dst: msgSender,
+                currencyIn: params.currencyIn,
+                currencyOut: currencyIn,      // 循环的最后一个
+                amountIn: params.amountIn,
+                amountOut: uint256(amountIn)
+            });
+            return abi.encode(uint256(amountIn));
+
+            
+        }else if(action == SWAP_EXACT_OUT){
+            (address msgSender, ExactOutputParams memory params) = abi.decode(data, (address, ExactOutputParams));
+            uint256 n = params.path.length;
+            address currencyOut = params.currencyOut;
+            int256 amountOut = params.amountOut.toInt256();
+            for (uint256 i = n; i> 0; i--){
+                PathKey memory path = params.path[i-1];
+                (address currency0, address currency1) = path.currency < currencyOut
+                    ? (path.currency, currencyOut)
+                    : (currencyOut, path.currency);
+                PoolKey memory key = PoolKey({
+                    currency0: currency0,
+                    currency1: currency1,
+                    fee: path.fee,
+                    tickSpacing:path.tickSpacing,
+                    hooks: path.hooks
+                });
+
+                bool zeroForOne = currencyOut == currency1;
+                (int128 amount0, int128 amount1) = _swap(
+                    key, zeroForOne, amountOut, path.hookData
+                );
+                currencyOut = path.currency;
+                amountOut = (zeroForOne ? -amount0 : -amount1).toInt256();
+            }
+
+            require(uint256(amountOut) <= uint(params.amountInMax), "amount in > max");
+            _takeAndSettle({
+                dst: msgSender,
+                currencyIn: currencyOut,
+                currencyOut: params.currencyOut,
+                amountIn: uint256(amountOut),
+                amountOut: uint256(params.amountOut)
+            });
+            return abi.encode(uint256(amountOut));
         }
+
 
         revert UnsupportedAction(action);
     }
@@ -209,6 +287,11 @@ contract Router is TStore, IUnlockCallback {
         returns (uint256 amountOut)
     {
         // Write your code here
+        require(params.path.length > 0, "path length = 0");
+        params.currencyIn.transferIn(msg.sender, params.amountIn);
+        bytes memory res = poolManager.unlock(abi.encode(msg.sender, params));
+        amountOut = abi.decode(res, (uint256));
+        _refund(params.currencyIn, msg.sender);
     }
 
     function swapExactOutput(ExactOutputParams calldata params)
@@ -218,6 +301,18 @@ contract Router is TStore, IUnlockCallback {
         returns (uint256 amountIn)
     {
         // Write your code here
+        require(params.path.length > 0, "path length =0");
+        PathKey memory path = params.path[0];
+        address currencyIn = path.currency;
+
+        currencyIn.transferIn(msg.sender, params.amountInMax);
+        poolManager.unlock(abi.encode(msg.sender, params));
+        uint256 refunded = _refund(currencyIn, msg.sender);
+        if (refunded < params.amountInMax){
+            return params.amountInMax - refunded;
+        }
+        return 0;
+
     }
 
     function _swap(
