@@ -25,6 +25,7 @@ import {
     MAX_SQRT_PRICE
 } from "../src/Constants.sol";
 import {LimitOrder} from "@exercises/LimitOrder.sol";
+// import {LimitOrder} from "../src/solutions/LimitOrder.sol";
 
 /*
 1. Run test/FindHookSalt.test.sol to find salt
@@ -55,9 +56,12 @@ contract LimitOrderTest is Test, TestUtil {
     uint256 constant ADD_LIQUIDITY = 2;
     uint256 action;
 
-    address[2] users = [address(11), address(22)];
+    address[2] users;
 
     function setUp() public {
+        users[0] = makeAddr("user1");
+        users[1] = makeAddr("user2");
+
         helper = new TestHelper();
 
         // console.log("Deployer", address(this));
