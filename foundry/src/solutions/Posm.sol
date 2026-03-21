@@ -96,7 +96,7 @@ contract PosmExercises {
 
         // CLOSE_CURRENCY params
         // currency 0
-        params[1] = abi.encode(address(0), USDC);
+        params[1] = abi.encode(address(0));
 
         // CLOSE_CURRENCY params
         // currency 1

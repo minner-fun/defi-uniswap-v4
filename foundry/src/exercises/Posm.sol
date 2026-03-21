@@ -68,13 +68,15 @@ contract PosmExercises {
         // Write your code here
         bytes memory actions = abi.encodePacked(
             uint8(Actions.INCREASE_LIQUIDITY),
-            uint8(Actions.SETTLE_PAIR),
+            uint8(Actions.CLOSE_CURRENCY),
+            uint8(Actions.CLOSE_CURRENCY),
             uint8(Actions.SWEEP)
         );
-        bytes[] memory params = new bytes[](3);
+        bytes[] memory params = new bytes[](4);
         params[0] = abi.encode(tokenId, liquidity, amount0Max, amount1Max, "");
-        params[1] = abi.encode(address(0), USDC);
-        params[2] = abi.encode(address(0), address(this));
+        params[1] = abi.encode(address(0));
+        params[2] = abi.encode(USDC);
+        params[3] = abi.encode(address(0), address(this));
 
         posm.modifyLiquidities{value: address(this).balance}(
             abi.encode(actions, params), block.timestamp
