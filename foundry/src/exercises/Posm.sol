@@ -37,35 +37,23 @@ contract PosmExercises {
         );
         bytes[] memory params = new bytes[](3);
 
-        // MINT_POSITION params
         params[0] = abi.encode(
             key,
             tickLower,
             tickUpper,
             liquidity,
-            // amount0Max
             type(uint128).max,
-            // amount1Max
             type(uint128).max,
-            // owner
             address(this),
-            // hook data
             ""
         );
-
-        // SETTLE_PAIR params
-        // currency 0 and 1
         params[1] = abi.encode(address(0), USDC);
-
-        // SWEEP params
-        // currency, address to
         params[2] = abi.encode(address(0), address(this));
 
         uint256 tokenId = posm.nextTokenId();
 
-        posm.modifyLiquidities{value: address(this).balance}(
-            abi.encode(actions, params), block.timestamp
-        );
+        posm.modifyLiquidities{value:address(this).balance}(
+            abi.encode(actions, params), block.timestamp);
 
         return tokenId;
     }
@@ -92,5 +80,20 @@ contract PosmExercises {
         external
     {
         // Write your code here
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.BURN_POSITION), uint8(Actions.TAKE_PAIR)
+        );
+        bytes[] memory params = new bytes[](2);
+
+        params[0] = abi.encode(
+            tokenId,
+            amount0Min,
+            amount1Min,
+            ""
+        );
+
+        params[1] = abi.encode(address(0), USDC, address(this));
+
+        posm.modifyLiquidities(abi.encode(actions, params), block.timestamp);
     }
 }
