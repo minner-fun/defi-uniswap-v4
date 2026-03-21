@@ -45,54 +45,55 @@ contract Swap is IUnlockCallback {
         returns (bytes memory)
     {
         // Write your code here
-        (address msgSender, SwapExactInputSingleHop memory params) = 
-        abi.decode(data, (address, SwapExactInputSingleHop));
-
+        (address msgSender, SwapExactInputSingleHop memory params) =
+            abi.decode(data, (address, SwapExactInputSingleHop));
 
         int256 swapDelta = poolManager.swap({
             key: params.poolKey,
             params: SwapParams({
                 zeroForOne: params.zeroForOne,
-                amountSpecified: -(params.amountIn.toInt256()),   // 对poolManager来说，输入的金额，都是欠pm的，所以是负的，相当于在mp上创建了一个负债
-                sqrtPriceLimitX96: params.zeroForOne? MIN_SQRT_PRICE +1 : MAX_SQRT_PRICE-1
+                amountSpecified: -(params.amountIn.toInt256()), // 对poolManager来说，输入的金额，都是欠pm的，所以是负的，相当于在mp上创建了一个负债
+                sqrtPriceLimitX96: params.zeroForOne
+                    ? MIN_SQRT_PRICE + 1
+                    : MAX_SQRT_PRICE - 1
             }),
             hookData: ""
         });
-        BalanceDelta delta = BalanceDelta.wrap(swapDelta);   // 被swap后的delta，输入金额是个负值。
-        int128 amount0 = delta.amount0();  
+        BalanceDelta delta = BalanceDelta.wrap(swapDelta); // 被swap后的delta，输入金额是个负值。
+        int128 amount0 = delta.amount0();
         int128 amount1 = delta.amount1();
 
         (
             address currencyIn,
             address currencyOut,
-            uint256 amountIn, 
+            uint256 amountIn,
             uint256 amountOut
         ) = params.zeroForOne
-        ? (
-            params.poolKey.currency0,
-            params.poolKey.currency1,
-            (-amount0).toUint256(),  //  所以在确定输入输出token和数量(单纯的数量，用绝对值表示了，正负号，表示方向，是亏欠，还是债主)的时候，需要把输入的负值给改成正的。
-            amount1.toUint256()
-        )
-        :(
-            params.poolKey.currency1,
-            params.poolKey.currency0,
-            (-amount1).toUint256(),
-            amount0.toUint256()
-        );
+            ? (
+                params.poolKey.currency0,
+                params.poolKey.currency1,
+                (-amount0).toUint256(), //  所以在确定输入输出token和数量(单纯的数量，用绝对值表示了，正负号，表示方向，是亏欠，还是债主)的时候，需要把输入的负值给改成正的。
+                amount1.toUint256()
+            )
+            : (
+                params.poolKey.currency1,
+                params.poolKey.currency0,
+                (-amount1).toUint256(),
+                amount0.toUint256()
+            );
         require(amountOut >= params.amountOutMin, "amount out < min");
 
-        poolManager.take({           // 后续步骤跟Flash一样
-            currency:currencyOut,
-            to:msgSender,
+        poolManager.take({ // 后续步骤跟Flash一样
+            currency: currencyOut,
+            to: msgSender,
             amount: amountOut
         });
 
         poolManager.sync(currencyIn);
 
-        if (currencyIn == address(0)){
+        if (currencyIn == address(0)) {
             poolManager.settle{value: amountIn}();
-        }else{
+        } else {
             IERC20(currencyIn).transfer(address(poolManager), amountIn);
             poolManager.settle();
         }
@@ -106,14 +107,13 @@ contract Swap is IUnlockCallback {
         address currencyIn = params.zeroForOne
             ? params.poolKey.currency0
             : params.poolKey.currency1;
-        
+
         currencyIn.transferIn(msg.sender, uint256(params.amountIn));
         poolManager.unlock(abi.encode(msg.sender, params));
 
         uint256 bal = currencyIn.balanceOf(address(this));
-        if (bal > 0){
+        if (bal > 0) {
             currencyIn.transferOut(msg.sender, bal);
         }
-
     }
 }

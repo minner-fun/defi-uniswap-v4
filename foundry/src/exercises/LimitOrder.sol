@@ -141,20 +141,21 @@ contract LimitOrder is TStore {
         PoolId poolId = key.toId();
         int24 tick = _getTick(poolId);
 
-        (int24 lower, int24 upper) = _getTickRange(ticks[poolId], tick, key.tickSpacing);
+        (int24 lower, int24 upper) =
+            _getTickRange(ticks[poolId], tick, key.tickSpacing);
 
-        if (upper < lower){
+        if (upper < lower) {
             return (this.afterSwap.selector, 0);
         }
 
         bool zeroForOne = !params.zeroForOne;
-        while(lower <= upper){
+        while (lower <= upper) {
             bytes32 id = getBucketId(poolId, lower, zeroForOne);
             uint256 s = slots[id];
             Bucket storage bucket = buckets[id][s];
-            if (bucket.liquidity > 0){
-                slots[id] = s+1;
-                (uint256 amount0, uint256 amount1, ,) = _removeLiquidity(
+            if (bucket.liquidity > 0) {
+                slots[id] = s + 1;
+                (uint256 amount0, uint256 amount1,,) = _removeLiquidity(
                     key, lower, -int256(uint256(bucket.liquidity))
                 );
                 bucket.filled = true;
@@ -174,7 +175,6 @@ contract LimitOrder is TStore {
         }
         ticks[poolId] = tick;
 
-
         return (this.afterSwap.selector, 0);
     }
 
@@ -188,14 +188,16 @@ contract LimitOrder is TStore {
         if (action == ADD_LIQUIDITY) {
             // Write your code here
             (
-                address msgSender, 
+                address msgSender,
                 uint256 msgVal,
                 PoolKey memory key,
                 int24 tickLower,
                 bool zeroForOne,
                 uint128 liquidity
-            ) = abi.decode(data, (address, uint256, PoolKey, int24, bool, uint128));
-            (int256 d, ) = poolManager.modifyLiquidity({
+            ) = abi.decode(
+                data, (address, uint256, PoolKey, int24, bool, uint128)
+            );
+            (int256 d,) = poolManager.modifyLiquidity({
                 key: key,
                 params: ModifyLiquidityParams({
                     tickLower: tickLower,
@@ -212,8 +214,8 @@ contract LimitOrder is TStore {
 
             address currency;
             uint256 amountToPay;
-            if(zeroForOne){
-                require(amount0 < 0 && amount1 ==0, "tick crossed");
+            if (zeroForOne) {
+                require(amount0 < 0 && amount1 == 0, "tick crossed");
                 currency = key.currency0;
                 amountToPay = (-amount0).toUint256();
             } else {
@@ -223,13 +225,13 @@ contract LimitOrder is TStore {
             }
 
             poolManager.sync(currency);
-            if(currency == address(0)){
+            if (currency == address(0)) {
                 require(msgVal >= amountToPay, "Not enough ETH sent");
                 poolManager.settle{value: amountToPay}();
-                if (msgVal > amountToPay){
+                if (msgVal > amountToPay) {
                     _sendEth(msgSender, msgVal - amountToPay);
                 }
-            }else{
+            } else {
                 require(msgVal == 0, "received ETH");
                 IERC20(currency).transferFrom(
                     msgSender, address(poolManager), amountToPay
@@ -237,14 +239,13 @@ contract LimitOrder is TStore {
                 poolManager.settle();
             }
             return "";
-
         } else if (action == REMOVE_LIQUIDITY) {
             // Write your code here
-            (PoolKey memory key, int24 tickLower, uint128 size) = 
+            (PoolKey memory key, int24 tickLower, uint128 size) =
                 abi.decode(data, (PoolKey, int24, uint128));
-            (uint256 amount0, uint256 amount1, uint256 fee0, uint256 fee1) = 
+            (uint256 amount0, uint256 amount1, uint256 fee0, uint256 fee1) =
                 _removeLiquidity(key, tickLower, -int256(uint256(size)));
-            
+
             return abi.encode(amount0, amount1, fee0, fee1);
         }
 
@@ -262,7 +263,9 @@ contract LimitOrder is TStore {
         require(liquidity > 0, "liquidity = 0");
 
         poolManager.unlock(
-            abi.encode(msg.sender, msg.value, key, tickLower, zeroForOne, liquidity)
+            abi.encode(
+                msg.sender, msg.value, key, tickLower, zeroForOne, liquidity
+            )
         );
 
         PoolId poolId = key.toId();
@@ -301,28 +304,28 @@ contract LimitOrder is TStore {
         bucket.sizes[msg.sender] = 0;
 
         bytes memory res = poolManager.unlock(abi.encode(key, tickLower, size));
-        (uint256 amount0, uint256 amount1, uint256 fee0, uint256 fee1) = 
+        (uint256 amount0, uint256 amount1, uint256 fee0, uint256 fee1) =
             abi.decode(res, (uint256, uint256, uint256, uint256));
 
-        if (bucket.liquidity > 0){
+        if (bucket.liquidity > 0) {
             bucket.amount0 += fee0;
             bucket.amount1 += fee1;
 
-            if (amount0 > fee0){
+            if (amount0 > fee0) {
                 key.currency0.transferOut(msg.sender, amount0 - fee0);
             }
-            if (amount1 > fee1){
+            if (amount1 > fee1) {
                 key.currency1.transferOut(msg.sender, amount1 - fee1);
             }
-        }else{
+        } else {
             amount0 += bucket.amount0;
-            bucket.amount0=0;
-            if (amount0 > 0){
+            bucket.amount0 = 0;
+            if (amount0 > 0) {
                 key.currency0.transferOut(msg.sender, amount0);
             }
             amount1 += bucket.amount1;
             bucket.amount1 = 0;
-            if (amount1 > 0){
+            if (amount1 > 0) {
                 key.currency1.transferOut(msg.sender, amount1);
             }
         }
@@ -351,15 +354,15 @@ contract LimitOrder is TStore {
         uint256 amount0 = bucket.amount0 * size / liquidity;
         uint256 amount1 = bucket.amount1 * size / liquidity;
 
-        if (amount0 > 0){
+        if (amount0 > 0) {
             key.currency0.transferOut(msg.sender, amount0);
         }
-        if (amount1 > 0){
+        if (amount1 > 0) {
             key.currency1.transferOut(msg.sender, amount1);
         }
         emit Take(
             PoolId.unwrap(poolId),
-            slot, 
+            slot,
             msg.sender,
             tickLower,
             zeroForOne,
@@ -432,8 +435,8 @@ contract LimitOrder is TStore {
         }
     }
 
-    function _sendEth(address to, uint256 amount) private{
-        (bool ok, ) = to.call{value: amount}("");
+    function _sendEth(address to, uint256 amount) private {
+        (bool ok,) = to.call{value: amount}("");
         require(ok, "Send ETH failed");
     }
 
@@ -441,9 +444,12 @@ contract LimitOrder is TStore {
         PoolKey memory key,
         int24 tickLower,
         int256 liquidity
-    ) private returns(uint256 amount0, uint256 amount1, uint256 fee0,uint256 fee1){
+    )
+        private
+        returns (uint256 amount0, uint256 amount1, uint256 fee0, uint256 fee1)
+    {
         (int256 d, int256 f) = poolManager.modifyLiquidity({
-            key:key,
+            key: key,
             params: ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickLower + key.tickSpacing,
@@ -454,20 +460,20 @@ contract LimitOrder is TStore {
         });
 
         BalanceDelta delta = BalanceDelta.wrap(d);
-        if (delta.amount0() > 0){
+        if (delta.amount0() > 0) {
             amount0 = uint256(uint128(delta.amount0()));
             poolManager.take(key.currency0, address(this), amount0);
         }
-        if (delta.amount1() > 0){
+        if (delta.amount1() > 0) {
             amount1 = uint256(uint128(delta.amount1()));
             poolManager.take(key.currency1, address(this), amount1);
         }
 
         BalanceDelta fees = BalanceDelta.wrap(f);
-        if (fees.amount0() > 0){
+        if (fees.amount0() > 0) {
             fee0 = uint256(uint128(fees.amount0()));
         }
-        if (fees.amount1() > 0){
+        if (fees.amount1() > 0) {
             fee1 = uint256(uint128(fees.amount1()));
         }
     }

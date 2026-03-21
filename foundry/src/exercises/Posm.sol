@@ -52,8 +52,9 @@ contract PosmExercises {
 
         uint256 tokenId = posm.nextTokenId();
 
-        posm.modifyLiquidities{value:address(this).balance}(
-            abi.encode(actions, params), block.timestamp);
+        posm.modifyLiquidities{value: address(this).balance}(
+            abi.encode(actions, params), block.timestamp
+        );
 
         return tokenId;
     }
@@ -85,13 +86,7 @@ contract PosmExercises {
         );
         bytes[] memory params = new bytes[](2);
 
-        params[0] = abi.encode(
-            tokenId,
-            amount0Min,
-            amount1Min,
-            ""
-        );
-
+        params[0] = abi.encode(tokenId, amount0Min, amount1Min, "");
         params[1] = abi.encode(address(0), USDC, address(this));
 
         posm.modifyLiquidities(abi.encode(actions, params), block.timestamp);
