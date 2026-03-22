@@ -51,10 +51,45 @@ contract SwapV3ToV4 {
             : (v4.key.currency1, v4.key.currency0);
 
         // Write your code here
+        IERC20(v3.tokenIn).transferFrom(
+            msg.sender, address(router), v3.amountIn
+        )
 
         // UniversalRouter commands and inputs
         bytes memory commands;
         bytes[] memory inputs;
+
+        if (v3.tokenOut == WETH){
+            commands = abi.encodePacked(
+                uint8(Commands.V3_SWAP_EXACT_IN),
+                uint8(Commands.UINWRAP_WETH),
+                uint8(Commands.V4_SWAP)
+            );
+        }else{
+            commands = abi.encodePacked(
+                uint8(Commands.V3_SWAP_EXACT_IN),
+                uint8(Commands.V4_SWAP)
+            );
+        }
+        inputs = new bytes[](commands.length);
+        inputs[0] = abi.encode(
+            address(router),
+            ActionConstants.CONTRACT_BALANCE,
+            uint256(1),
+            abi.encodePacked(v3.tokenIn, v3.poolFee, v3.tokenOut),
+            false
+        );
+
+        if (v3.tokenOut == WETH){
+            inputs[1] = abi.encode(
+                address(router),
+                uint256(1)
+            );
+        }
+
+
+
+
     }
 
     function withdraw(address currency, address receiver) private {
