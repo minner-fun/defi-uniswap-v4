@@ -41,12 +41,7 @@ contract Reposition {
         );
         bytes[] memory params = new bytes[](3);
 
-        params[0] = abi.encode(
-            tokenId,
-            0,
-            0,
-            ""
-        );
+        params[0] = abi.encode(tokenId, 0, 0, "");
         params[1] = abi.encode(
             key,
             tickLower,
@@ -56,9 +51,9 @@ contract Reposition {
             owner,
             ""
         );
-        params[2] = abi.encode(key.currency0,key.currency1, owner);
+        params[2] = abi.encode(key.currency0, key.currency1, owner);
         newTokenId = posm.nextTokenId();
-        posm.modifyLiquidities{value:address(this).balance}(
+        posm.modifyLiquidities{value: address(this).balance}(
             abi.encode(actions, params), block.timestamp
         );
     }

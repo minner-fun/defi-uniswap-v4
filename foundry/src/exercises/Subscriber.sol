@@ -94,9 +94,9 @@ contract Subscriber is ISubscriber, Token {
         // Write your code here
         bytes32 poolId = poolIds[tokenId];
         address owner = ownerOf[tokenId];
-        if (liquidityChange > 0){
+        if (liquidityChange > 0) {
             _mint(poolId, owner, uint256(liquidityChange));
-        } else{
+        } else {
             _burn(
                 poolId,
                 owner,
