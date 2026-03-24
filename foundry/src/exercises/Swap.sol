@@ -59,7 +59,7 @@ contract Swap is IUnlockCallback {
             }),
             hookData: ""
         });
-        BalanceDelta delta = BalanceDelta.wrap(swapDelta); // 被swap后的delta，输入金额是个负值。
+        BalanceDelta delta = BalanceDelta.wrap(swapDelta); // swapDelta表示输入输出的金额的变化量，输入是负的，输出是正的。表示输入减少，转变了成了输出，输出增多了
         int128 amount0 = delta.amount0();
         int128 amount1 = delta.amount1();
 
@@ -83,7 +83,7 @@ contract Swap is IUnlockCallback {
             );
         require(amountOut >= params.amountOutMin, "amount out < min");
 
-        poolManager.take({ // 后续步骤跟Flash一样
+        poolManager.take({                 // 后续步骤跟Flash一样
             currency: currencyOut,
             to: msgSender,
             amount: amountOut
